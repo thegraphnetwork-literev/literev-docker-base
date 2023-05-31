@@ -1,5 +1,3 @@
-# ref: https://github.com/mamba-org/micromamba-docker/blob/main/Dockerfile
-
 FROM condaforge/mambaforge:latest
 
 LABEL maintainer="Ivan Ogasawara <ivan.ogasawara@gmail.com>"
@@ -15,14 +13,14 @@ USER root
 
 SHELL ["/bin/bash", "-c"]
 
+ENV TZ=Etc/UTC
 ENV ENV_NAME=literev
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
+ENV CONDA_PREFIX /opt/conda/envs/$ENV_NAME
+ENV PATH ${CONDA_PREFIX}/bin:$PATH
+ENV PYTHONPATH='/opt/services/literev'
 
-# we need to use a different approach
-ENV UID=1000
-ENV GID=1000
-
+# [Deps] apt-get
 RUN apt-get update -y \
   && apt-get install -y \
     apt-utils \
@@ -37,32 +35,41 @@ RUN apt-get update -y \
     /var/cache/apt/archives \
     /tmp/*
 
-RUN addgroup --gid ${GID} literev \
-  && useradd --uid ${UID} --gid ${GID} -ms /bin/bash literev \
-  && mkdir -p /opt/services/literev \
-  && chmod -R a+rwx /opt/conda /opt/services \
+# [System] Configure non-root user
+ARG UID
+ARG GID
+RUN set -ex \
+    && if [ ! "${UID}" ] || [ ! "${GID}" ]; then \
+      echo "UID and GID are not properly defined, pass "; \
+      echo "them as arguments to build the image."; \
+      exit 1; \
+    else \
+      addgroup --gid ${GID} literev \
+      && useradd --uid ${UID} --gid ${GID} -ms /bin/bash literev; \
+    fi
+
+COPY --chown=literev:literev ./scripts/ /opt/scripts
+COPY --chown=literev:literev ./conda/ /tmp/conda
+COPY --chown=literev:literev pyproject.toml /opt/services/literev/
+
+RUN chmod -R a+rwx /opt/conda /opt/services /opt/scripts \
   && export ENV_NAME="$ENV_NAME" \
-  && chown literev:literev /opt/services
+  && echo "source /opt/scripts/entrypoint.sh" > ~/.bashrc
 
 USER literev
 
 WORKDIR /opt/services/literev
 
-COPY --chown=literev:literev ./conda/ /tmp/conda
-
-RUN mamba env create -n $ENV_NAME --file /tmp/conda/base.yaml \
-  && mamba env update -n $ENV_NAME --file /tmp/conda/service-linux-extra.yaml \
+# [Deps] conda
+RUN conda env create --file /tmp/conda/base.yaml \
+  && conda env update --file /tmp/conda/service-linux-extra.yaml \
   && conda clean --all \
   && find /opt/conda/ -type f,l -name '*.pyc' -delete \
   && find /opt/conda/ -type f,l -name '*.js.map' -delete \
   && rm -rf /opt/conda/pkgs /tmp/*
 
-ENV CONDA_PREFIX /opt/conda/envs/$ENV_NAME
-ENV PATH ${CONDA_PREFIX}/bin:$PATH
 
-# install dependencies
-COPY --chown=literev:literev pyproject.toml /opt/services/literev
-
+# [Deps] poetry
 RUN poetry config virtualenvs.create false \
   && poetry config experimental.new-installer true \
   && poetry install --no-root --no-cache --only=main \
@@ -70,15 +77,5 @@ RUN poetry config virtualenvs.create false \
   && pip cache purge \
   && rm -rf ~/.cache/pypoetry/{cache,artifacts}
 
-USER root
 
-RUN touch /opt/entrypoint.sh \
-  && chown literev.literev /opt/entrypoint.sh \
-  && chmod +x /opt/entrypoint.sh \
-  && echo "source /opt/entrypoint.sh" > ~/.bashrc
-
-USER literev
-
-ENV PYTHONPATH='/opt/services/literev'
-
-ENTRYPOINT ["tini", "--", "/opt/entrypoint.sh"]
+ENTRYPOINT ["tini", "--", "/opt/scripts/entrypoint.sh"]
