@@ -4,6 +4,7 @@ service-groups:
   - name: base
     project-name: literev
     compose-path: containers/compose.yaml
+    env-file: .env 
     services:
       default: literev-base
       list:

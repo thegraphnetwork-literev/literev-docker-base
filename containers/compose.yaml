@@ -5,3 +5,6 @@ services:
     build:
       context: ..
       dockerfile: containers/literev/Dockerfile
+      args:
+        - UID=${HOST_UID}
+        - GID=${HOST_GID}
