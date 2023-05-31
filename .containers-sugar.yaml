@@ -1,0 +1,10 @@
+version: 1.0.0
+compose-app: docker-compose
+service-groups:
+  - name: base
+    project-name: literev
+    compose-path: containers/compose.yaml
+    services:
+      default: literev-base
+      list:
+        - name: literev-base

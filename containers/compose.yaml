@@ -1,0 +1,7 @@
+version: '3.8'
+
+services:
+  literev-base:
+    build:
+      context: ..
+      dockerfile: containers/literev/Dockerfile

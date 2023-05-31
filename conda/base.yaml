@@ -1,0 +1,18 @@
+name: literev
+channels:
+  - nodefaults
+  - conda-forge
+dependencies:
+  - compilers
+  - docker-compose
+  - libpython-static 3.9.*
+  - python 3.9.*
+  - poetry 1.3.*
+  - pre-commit
+  - pip
+  - urllib3 <2
+  - uwsgi 2.0.20
+  - pip:
+    - makim==1.8.1
+    - containers-sugar==1.6.0
+    - urllib3 <2

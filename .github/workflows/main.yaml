@@ -1,0 +1,56 @@
+name: main
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy a docker image to ghcr.io
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    timeout-minutes: 15
+    concurrency:
+      group: ci-main-tests-${{ github.ref }}
+      cancel-in-progress: true
+    # permissions:
+    #   pull-requests: write
+    #   contents: write
+    #   actions: read
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup conda environment
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          channels: conda-forge,nodefaults
+          activate-environment: literev
+          use-mamba: true
+          miniforge-variant: Mambaforge
+
+      - name: Cache conda
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CONDA }}/envs #~/conda_pkgs_dir
+          key:
+            conda-${{ runner.os }}--${{ runner.arch }}-${{
+            hashFiles('conda/base.yaml') }}-${{ env.CACHE_NUMBER
+            }}
+        env:
+          # Increase this value to reset cache if conda/base.yaml has not changed
+          CACHE_NUMBER: 0
+        id: cache
+
+- name: Build and push Docker image
+  uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+  with:
+    context: .
+    file: ./Dockerfile
+    platforms: ${{ matrix.platforms }}
+    push: true
+    outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=My multi-arch image

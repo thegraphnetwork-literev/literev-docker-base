@@ -1,0 +1,6 @@
+name: literev
+channels:
+  - nodefaults
+  - conda-forge
+dependencies:
+  - sysroot_linux-64  2.17
